@@ -1,0 +1,6 @@
+; $Id$
+name = CFPeople
+description = A module that pulls people from a webservice powered by the old Humanities ColdFusion/MSSQL servers
+core = 6.x
+package = Arts and Sciences at The Ohio State University Modules
+version = 6.x-0.0.1

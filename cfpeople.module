@@ -1,0 +1,407 @@
+<?php
+// $Id$
+/**
+ * @file
+ * A module that pulls people from a webservice powered by the old Humanities ColdFusion/MSSQL servers
+ */
+
+// Turn on error reporting if we are on dev
+if (strstr('drupal-d', $_SERVER['SERVER_NAME']) != -1) { // Are we on dev? (YES)
+  ini_set('display_errors', 'On');
+  error_reporting(E_ALL);
+} // Are we on dev? (END)
+
+// Add the stylesheet
+drupal_add_css(drupal_get_path('module', 'cfpeople') .'/css/cfpeople.css');
+
+/**
+ *
+ * Implementation of hook_help().
+ *
+ * Module help page
+ */
+function cfpeople_help($path, $arg) {
+  
+  // Declare output variable
+  $output = '';
+  
+  // provide help for the module
+  switch ($path) {
+    case "admin/help#cfpeople":
+      $output = t("
+        A module that pulls people from a webservice powered by the old Humanities ColdFusion/MSSQL servers.
+      ");
+      break;
+  }
+  
+  // Return the output
+  return $output;
+} // function cfpeople_help($path, $arg)
+
+/**
+ *
+ * Implementation of hook_perm().
+ *
+ * Module permissions settings
+ */
+function cfpeople_perm() {
+  
+  // return permissions for module
+  return array(
+    'access cfpeople',
+    'administer cfpeople',
+  );
+  
+} // function cfpeople_perm()
+
+/**
+ *
+ * Implementation of hook_admin().
+ *
+ * Module settings page
+ */
+function cfpeople_admin() {
+  
+  // Declare the form
+  $form = array();
+    
+  $feed = 'http://mayanarchives-popolwuj.osu.edu/people_webservice/dept.cfm';
+  $http_result = drupal_http_request($feed);
+
+  // Load up the XML File
+  if ($http_result->code == 200) {
+    $xmldoc = new DOMDocument();
+    try {
+      $xmldoc->loadXML($http_result->data);
+    } 
+    catch (DOMException $e) {      
+      $msg = "Error parsing events XML for %url: %msg.";
+      $vars = array('%url' => $url, '%msg' => $e->getMessage());
+      watchdog('eventsdisplay', $msg, $vars, WATCHDOG_WARNING);
+      return t("Getting the feed for events resulted in an error.");
+    }
+  } 
+  else {    
+    $msg = 'No content from %url.';
+    $vars = array( '%url' => $url );
+    watchdog('eventsdisplay', $msg, $vars, WATCHDOG_WARNING);
+    return t("No content.");
+  }
+  
+  $tempxml = decode_entities($http_result->data);
+  $tempxml = str_replace('&', '&amp;', $tempxml);
+  $xmlstring = '<?xml version="1.0" encoding="utf-8"?>' . $tempxml;
+
+  variable_set('cfpeople_deptname', 'Department of English');
+  variable_set('cfpeople_deptshort', 'English');
+
+  $xml = simplexml_load_string($xmlstring);
+  foreach ($xml->item as $value) {
+      $options[trim($value->deptid)] = t(trim($value->department));
+      if ($value->deptid == variable_get('cfpeople_peopledept', '05370')) {
+        $department = t(trim($value->department));
+        $shortname = t(trim($value->shortname));        
+        variable_set('cfpeople_deptname', $department);
+        variable_set('cfpeople_deptshort', $shortname);
+      }      
+  } 
+  
+  // Display dropdown
+  $form['cfpeople_peopledept'] = array(
+    '#type' => 'select',
+    '#title' => t('Department'),
+    '#default_value' => variable_get('cfpeople_peopledept', '05370'),
+    '#options' => $options,
+    '#description' => t('Select a department.'),
+  );
+  unset($options);
+    
+  // Toggle Faculty Stack
+  $form['cfpeople_toggle_stack'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Turn on Stackable Faculty?'),
+    '#default_value' => variable_get('cfpeople_toggle_stack', 0),
+    '#description' => t('Select to enable a stackable listing in place standard display. <strong>NOTE</strong>: Sorting is disabled in this display'),
+  );
+  
+  // Faculty Stack Title
+  $form['cfpeople_stack_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter a name for the stacked listing'),
+    '#default_value' => variable_get('cfpeople_stack_title', 'Faculty'),
+    '#description' => t('Enter a name that will appear as the link to the stacked listing.'),
+  );
+  
+  // Alphabetical Sorting
+  $form['cfpeople_sorting_types'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Turn on Alphabetical sorting?'),
+    '#default_value' => variable_get('cfpeople_sorting_types', 0),
+    '#description' => t('Select to enable alphabetical sorting on the people listing page.'),
+  );  
+  
+  $form['sorting_1'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Alphabetical Sorting Part 1'),
+    '#tree' => FALSE,
+  );
+  
+  $form['sorting_1']['cfpeople_sorting_1_1'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Starting Letter Part 1'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_1_1', 'A'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+  
+  $form['sorting_1']['cfpeople_sorting_1_2'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Ending Letter Part 1'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_1_2', 'F'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+  
+  $form['sorting_2'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Alphabetical Sorting Part 2'),
+    '#tree' => FALSE,
+  );  
+  
+  $form['sorting_2']['cfpeople_sorting_2_1'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Starting Letter Part 2'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_2_1', 'G'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+  
+  $form['sorting_2']['cfpeople_sorting_2_2'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Ending Letter Part 2'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_2_2', 'L'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+  
+  $form['sorting_3'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Alphabetical Sorting Part 3'),
+    '#tree' => FALSE,
+  );  
+  
+  $form['sorting_3']['cfpeople_sorting_3_1'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Starting Letter Part 3'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_3_1', 'M'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+    
+  $form['sorting_3']['cfpeople_sorting_3_2'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Ending Letter Part 3'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_3_2', 'R'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+
+  $form['sorting_4'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Alphabetical Sorting Part 4'),
+    '#tree' => FALSE,
+  );  
+
+  $form['sorting_4']['cfpeople_sorting_4_1'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Starting Letter Part 4'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_4_1', 'S'),
+    '#description' => t('Select the letter to sort by.'),
+  );
+  
+  $form['sorting_4']['cfpeople_sorting_4_2'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sort Ending Letter Part 4'),
+    '#size' => 1,
+    '#default_value' => variable_get('cfpeople_sorting_4_2', 'Z'),
+    '#description' => t('Select the letter to sort by.'),
+  );  
+
+  // Return the form to system settings
+  return system_settings_form($form);
+} // function cfpeople_admin()
+
+/**
+ *
+ * Implementation of hook_menu().
+ *
+ * Menu items for module
+ */
+function cfpeople_menu() {
+  
+  // Declare the menu items variable
+  $items = array();
+
+  // Define the admin settings menu item
+  $items['admin/settings/cfpeople'] = array(
+    'title' => 'CFPeople',
+    'description' => 'Modify the settings for cfpeople.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cfpeople_admin'),
+    'access arguments' => array('administer cfpeople'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  // Define the admin settings menu item
+  $items['admin/settings/cfpeople/general'] = array(
+    'title' => 'CFPeople Settings',
+    'description' => 'Modify the settings for people.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cfpeople_admin'),
+    'access arguments' => array('administer cfpeople'),
+    'weight' => 0,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  
+  // Define the admin settings menu item
+  $items['admin/settings/cfpeople/types'] = array(
+    'title' => 'People Types',
+    'description' => 'Modify the types of people to display.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cfpeople_types_form'),
+    'file' => 'actions/cfpeople.types.inc',
+    'access arguments' => array('administer cfpeople'),
+    'weight' => 1,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  // Define the admin settings menu item
+  $items['admin/settings/cfpeople/exclusions'] = array(
+    'title' => 'Stackable Types',
+    'description' => 'Modify the list of exclusions for the stackable listing.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('cfpeople_exclusions_form'),
+    'file' => 'actions/cfpeople.exclusions.inc',
+    'access arguments' => array('administer cfpeople'),
+    'weight' => 2,
+    'type' => MENU_LOCAL_TASK,
+  );  
+  
+  // Define the page callback for the main events listing
+  $items['people'] = array(
+    'title' => 'People',
+    'page callback' => 'people_webservice_search',
+    'access arguments' => array('access content'),
+    'file' => 'actions/cfpeople.display.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  if (variable_get('cfpeople_sorting_types', 0) == 0 && variable_get('cfpeople_toggle_stack', 0) == 0) {
+    // Define the page callback for the main events listing
+    $items['people/%'] = array(
+      'title' => 'People Listing',
+      'page callback' => 'people_webservice_list',
+      'access arguments' => array('access content'),
+      'page arguments' => array(1),
+      'file' => 'actions/cfpeople.display.inc',
+      'type' => MENU_CALLBACK,
+    );
+  }
+  else {
+    // Define the page callback for the main events listing
+    $items['people/list/%/%'] = array(
+      'title' => 'People Listing',
+      'page callback' => 'people_webservice_list',
+      'access arguments' => array('access content'),
+      'page arguments' => array(2, 3),
+      'file' => 'actions/cfpeople.display.inc',
+      'type' => MENU_CALLBACK,
+    );
+  }
+  
+  // Define the page callback for the main events listing
+  $items['people/view/%/%'] = array(
+    'title' => 'View Person',
+    'page callback' => 'people_webservice_person',
+    'access arguments' => array('access content'),
+    'page arguments' => array(2, 3),
+    'file' => 'actions/cfpeople.display.inc',
+    'type' => MENU_CALLBACK,
+  );  
+  
+  // Define the page callback for the main events listing
+  $items['people/listing'] = array(
+    'title' => t('View ' . variable_get('cfpeople_stack_title', 'Faculty')),
+    'page callback' => 'people_facstack',
+    'access arguments' => array('access content'),
+    'file' => 'actions/cfpeople.display.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  // Return the menu items
+  return $items;
+} // function cfpeople_menu()
+
+/**
+ * Implementation of hook_block().
+ *
+ * Generate HTML for the cfpeople block
+ * @param op the operation from the URL
+ * @param delta offset
+ * @returns block HTML
+ *
+ */
+function cfpeople_block($op='list', $delta=0) {
+
+  $block = array();
+  switch ($op) {
+    case 'list': 
+      // Declare the title of the block
+      $block[0]["info"] = t('Search for People.');
+      return $block;
+    case 'view':
+      switch ($delta) {
+          case 0: // Search for People section
+            if (!function_exists(people_webservice_search)) {
+              // Include our page containing the search function
+              include(drupal_get_path('module', 'cfpeople') . '/actions/cfpeople.display.inc');
+            }
+
+            // Get our block content
+            $block_content = people_webservice_search();
+
+            // set up the block
+            $block['subject'] = 'Search People';
+            $block['content'] = $block_content;
+            break;
+      }
+  }
+  // Return the block      
+  return $block;
+  
+} // function cfpeople_block($op='list', $delta=0)
+
+function _cfpeople_get_types() {
+  $items = array();
+  $result = db_query('SELECT id, valuename, title, linktext, displaytitle, stackable, active, weight FROM {cfpeople} ORDER BY weight');
+  while ($item = db_fetch_array($result)) {
+    $items[] = $item;
+  }
+  return $items; 
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function cfpeople_theme($existing, $type, $theme, $path) {
+  // Register our theme
+  return array(
+      'cfpeople_types_form' => array(
+        'arguments' => array('form' => NULL),
+      ),
+      'cfpeople_exclusions_form' => array(
+        'arguments' => array('form' => NULL),
+      ),
+  );
+} // cfpeople_theme($existing, $type, $theme, $path)

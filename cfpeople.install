@@ -1,0 +1,107 @@
+<?php
+// $Id$
+/**
+ * Install the CFPeople module
+ *
+ * @file
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function cfpeople_install() {
+  // Install the tables
+  drupal_install_schema('cfpeople');
+  
+  db_query("
+    INSERT INTO {cfpeople}    
+    (valuename, title, linktext, displaytitle, stackable, active, weight)
+    VALUES
+    ('FacStaff', 'All faculty and staff <span class=\"description\">(FacStaff)</span>', 'View the Faculty and Staff listing.', 'Faculty and Staff', 1, 0, -17),
+    ('AllFac', 'All faculty: Current, Emeritus, Lecturers, Senior Lecturers, Visiting <span class=\"description\">(AllFac)</span>', 'View the Faculty listing.', 'Faculty', 1, 1, -16),
+    ('AllProf', 'All faculty professors: Current, Associate Professors, Assistant Professors <span class=\"description\">(AllProf)</span>', 'View the Faculty listing.', 'Faculty', 1, 0, -15),
+    ('Graduates', 'All graduates: Grad students, GTAs, GRAs <span class=\"description\">(Graduates)</span>', 'View the Graduate Students listing.', 'Graduate Students', 0, 1, -14),
+    ('CurFac', 'Current Faculty only <span class=\"description\">(CurFac)</span>', 'View the Faculty listing.', 'Faculty', 1, 0, -13),
+    ('Staff', 'Staff only <span class=\"description\">(Staff)</span>', 'View the Staff listing.', 'Staff', 0, 1, -12),
+    ('Grad_Students', 'Graduate Students only <span class=\"description\">(Grad_Students)</span>', 'View the Graduate Students listing.', 'Graduate Students', 0, 0, -11),
+    ('Undergraduate Staff', 'Undergraduate Staff <span class=\"description\">(Undergraduate Staff)</span>', 'View the Undergraduate Staff listing.', 'Undergraduate Staff', 0, 0, -10),
+    ('Emeritus', 'Emeritus Faculty only <span class=\"description\">(Emeritus)</span>', 'View the Emeritus listing.', 'Emeritus Faculty', 1, 0, -9),
+    ('Lecturer', 'Faculty: Lecturers only <span class=\"description\">(Lecturer)</span>', 'View the Lecturers listing.', 'Lecturers', 1, 0, -8),
+    ('Senior Lecturer', 'Faculty: Senior Lecturers only <span class=\"description\">(Senior Lecturer)</span>', 'View the Senior Lecturers listing.', 'Senior Lecturers', 1, 0, -7),
+    ('Visiting', 'Faculty: Visiting only <span class=\"description\">(Visiting)</span>', 'View the Visiting Faculty listing.', 'Visiting Faculty', 1, 0, -6),
+    ('AsstProf', 'Faculty: Assistant Professors only <span class=\"description\">(AsstProf)</span>', 'View the Assistant Professors listing.', 'Assistant Professors', 1, 0, -5),
+    ('AssocProf', 'Faculty: Associate Professors only <span class=\"description\">(AssocProf)</span>', 'View the Associate Professors listing.', 'Associate Professors', 1, 0, -4),
+    ('GTA', 'Grad Students: Graduate Teaching Associates only <span class=\"description\">(GTA)</span>', 'View the Graduate Teaching Associates listing.', 'Graduate Teaching Associates', 0, 0, -3),
+    ('GRA', 'Grad Students: Graduate Research Associates only <span class=\"description\">(GRA)</span>', 'View the Graduate Research Associates listing.', 'Graduate Research Associates', 0, 0, -2),
+    ('GAA', 'Grad Students: Graduate Administrative Assistants only <span class=\"description\">(GAA)</span>', 'View the Graduate Administrative Assistants listing.', 'Graduate Administrative Assistants', 0, 0, -1)
+  "); 
+  
+} // function cfpeople_install()
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function cfpeople_uninstall() {
+  // Uninstall the tables
+  drupal_uninstall_schema('cfpeople');
+} // function cfpeople_uninstall()
+
+/**
+ * Implementation of hook_schema().
+ */
+function cfpeople_schema() {
+
+  // Build the osupro_fields table
+  $schema['cfpeople'] = array(
+    'description' => t('This table holds information for draggable fields including weight, title, and status.'),
+    'fields' => array(                      
+      'id' => array(
+        'description' => t('Auto-incrementing primary key. Used to identify the node.'),
+        'type' => 'serial',
+      ),                      
+      'valuename' => array(
+        'description' => t('Value of the field.'),
+        'type' => 'varchar',
+        'length' => 255,    
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => t('Title of the field.'),
+        'type' => 'varchar',
+        'length' => 255,    
+        'not null' => TRUE,
+      ), 
+      'linktext' => array(
+        'description' => t('Text for link descriptions.'),
+        'type' => 'varchar',
+        'length' => 255,    
+        'not null' => TRUE,
+      ),
+      'displaytitle' => array(
+        'description' => t('Text to display as link.'),
+        'type' => 'varchar',
+        'length' => 255,    
+        'not null' => TRUE,
+      ),
+      'stackable' => array(
+        'description' => t('Determine if field is stackable.'),
+        'type' => 'int', 
+        'not null' => TRUE,
+      ),
+      'active' => array(
+        'description' => t('Status of the field.'),
+        'type' => 'int', 
+        'not null' => TRUE,
+      ),  
+      'weight' => array(
+        'description' => t('Weight of the field.'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),  
+    ),
+    'primary key' => array('id'),    
+  );  
+    
+  // Return the database schema
+  return $schema;
+} // function cfpeople_schema()
